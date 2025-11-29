@@ -18,4 +18,7 @@ with tab1:
 # ---- Cards Page ----
 with tab2:
     st.title("My Cards")
-    st.dataframe(cards_tab.df)   # ⬅️ display the dataframe from cards_tab.py
+
+# ---- Admin Page ----
+with tab2:
+    st.dataframe(cards_tab.df)
