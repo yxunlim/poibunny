@@ -35,10 +35,21 @@ with tab_main:
 
     st.markdown("## ⭐ Featured Cards")
 
-    # Automatically refresh every 10 seconds
-    st_autorefresh = st.experimental_autorefresh(interval=10_000, key="featured_refresh")
+    # =============================
+    # Auto-refresh every 10 seconds
+    # =============================
+    now = int(time.time())
+    if "last_refresh" not in st.session_state:
+        st.session_state.last_refresh = now
 
+    # If 10 seconds passed → rerun
+    if now - st.session_state.last_refresh >= 10:
+        st.session_state.last_refresh = now
+        st.experimental_rerun()
+
+    # =============================
     # Pick 3 random cards
+    # =============================
     featured_cards = cards_df.sample(3)
 
     # Fade-in CSS
@@ -57,7 +68,7 @@ with tab_main:
         unsafe_allow_html=True
     )
 
-    # Display the 3 featured cards
+    # Display them
     cols = st.columns(3)
 
     for col, (_, card) in zip(cols, featured_cards.iterrows()):
