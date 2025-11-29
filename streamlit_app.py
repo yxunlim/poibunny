@@ -1,6 +1,4 @@
 import streamlit as st
-import nbformat
-from nbconvert import HTMLExporter
 
 st.set_page_config(page_title="POiBUNNY", layout="wide")
 
