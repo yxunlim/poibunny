@@ -24,6 +24,12 @@ def load_cards():
         df["type"] = "Other"
     return df
 
+def normalize_columns(df, column_map):
+    df.columns = df.columns.str.strip().str.lower()
+    df = df.rename(columns={k.lower(): v for k, v in column_map.items() if k.lower() in df.columns})
+    return df
+
 df = load_cards()
 st.dataframe(df)
+
 
