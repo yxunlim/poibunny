@@ -3,6 +3,34 @@ import cards_tab   # ⬅️ your module that loads df
 
 st.set_page_config(page_title="POiBUNNY", layout="wide")
 
+# ------------------- SESSION STATE -------------------
+if "cards_df" not in st.session_state:
+    st.session_state.cards_df = load_cards()
+if "track_df" not in st.session_state:
+    st.session_state.track_df = load_tracking_sheet()
+
+# ------------------- BUILD TABS -------------------
+cards_df = st.session_state.cards_df
+
+priority_display = ["Pokemon", "One Piece", "Magic the Gathering"]
+priority_lookup = [p.lower() for p in priority_display]
+
+raw_types = [t.strip() for t in cards_df["type"].dropna().unique() if str(t).strip() != ""]
+
+priority_types = []
+for disp, key in zip(priority_display, priority_lookup):
+    if key in [r.lower() for r in raw_types]:
+        priority_types.append(disp)
+
+remaining_types = sorted([
+    t.title() for t in raw_types
+    if t.lower() not in priority_lookup
+])
+
+all_types = priority_types + remaining_types
+
+tabs = st.tabs(all_types + ["Tracking", "Admin Panel"])
+
 # ---- Sidebar ----
 st.sidebar.title("Welcome to my Collection")
 st.sidebar.write("Feel free to email me at lynx1186@hotmail.com to purchase my cards")
