@@ -1,63 +1,206 @@
 import streamlit as st
-import time
-import random
-import pandas as pd
-
 from cards_tab import load_cards, clean_price, build_types
 
 st.set_page_config(page_title="POiBUNNY", layout="wide")
 
-# ---------------- LOAD DATA (defensive) ----------------
+# -----------------------------------------------------
+# Load data once (stored in session_state)
+# -----------------------------------------------------
 if "cards_df" not in st.session_state:
     st.session_state.cards_df = load_cards()
 
 cards_df = st.session_state.cards_df
-
-# If loader returned empty, show diagnostics and allow upload fallback.
-def show_loader_diagnostics(df):
-    st.error("⚠️ Unable to load Google Sheet or sheet returned no rows.")
-    st.markdown("**Diagnostics**")
-    st.write(f"- DataFrame is empty: `{df.empty}`")
-    st.write("- Expected columns (if present): `name, type, image_link, set, condition, sell_price, market_price`")
-    st.write("Raw dataframe preview (first 10 rows):")
-    st.dataframe(df.head(10))
-
-    uploaded = st.file_uploader("Upload a CSV of card data (optional)", type=["csv"])
-    if uploaded is not None:
-        try:
-            df2 = pd.read_csv(uploaded)
-            st.session_state.cards_df = df2
-            st.success("Uploaded CSV loaded — rerunning app.")
-            st.experimental_rerun()
-        except Exception as e:
-            st.error(f"Failed to read uploaded CSV: {e}")
-    else:
-        st.info("You can upload a CSV to populate the app, or check your Google Sheet URL/network.")
-
-# If empty, show diagnostics but still continue with a minimal fallback so UI is not blank
-if cards_df is None or cards_df.empty:
-    show_loader_diagnostics(cards_df if cards_df is not None else pd.DataFrame())
-    # Create a tiny fallback dataset so UI renders (user can upload to replace)
-    fallback = pd.DataFrame([
-        {"name": "Sample Card A", "type": "Pokemon", "image_link": "", "set": "SampleSet", "condition": "NM", "sell_price": "10", "market_price": "$8.00"},
-        {"name": "Sample Card B", "type": "One Piece", "image_link": "", "set": "SampleSet2", "condition": "LP", "sell_price": "20", "market_price": "$18.00"},
-        {"name": "Sample Card C", "type": "Magic the Gathering", "image_link": "", "set": "SampleSet3", "condition": "MP", "sell_price": "30", "market_price": "$25.00"},
-    ])
-    cards_df = fallback
-    st.session_state.cards_df = cards_df  # store fallback so rest of UI shows something
-
-# Ensure required columns exist
-for col in ["name", "type", "image_link", "set", "condition", "sell_price", "market_price"]:
-    if col not in cards_df.columns:
-        cards_df[col] = ""
-
-# Build list of types
 all_types = build_types(cards_df)
 
-# ---------------- SIDEBAR & TABS ----------------
+# -----------------------------------------------------
+# SIDEBAR
+# -----------------------------------------------------
 st.sidebar.title("Welcome to my Collection")
 st.sidebar.write("Feel free to email me at lynx1186@hotmail.com to purchase my cards")
 
+# -----------------------------------------------------
+# MAIN TABS
+# -----------------------------------------------------
 tab_main, tab_cards, tab_admin = st.tabs(["Main", "Cards", "Admin"])
 
-# ---------------- MAIN PAGE (Featured Carousel - Option A
+# =====================================================
+# MAIN PAGE
+# =====================================================
+with tab_main:
+    st.title("Hello World")
+    st.write("Market Price follows PriceCharting at USD prices.")
+    st.write("Listing price defaults to 1.1x — always happy to discuss!")
+
+
+# =====================================================
+# CARDS PAGE
+# =====================================================
+with tab_cards:
+    st.title("My Cards")
+
+    cards_df = st.session_state.cards_df
+
+    # --------------------------------------------------
+    # Build dynamic type tabs from the CSV
+    # --------------------------------------------------
+    priority_display = ["Pokemon", "One Piece", "Magic the Gathering"]
+    priority_lookup = [p.lower() for p in priority_display]
+
+    raw_types = [
+        t.strip()
+        for t in cards_df["type"].dropna().unique()
+        if str(t).strip() != ""
+    ]
+
+    priority_types = []
+    for disp, key in zip(priority_display, priority_lookup):
+        if key in [r.lower() for r in raw_types]:
+            priority_types.append(disp)
+
+    remaining_types = sorted([
+        t.title() for t in raw_types
+        if t.lower() not in priority_lookup
+    ])
+
+    all_types = priority_types + remaining_types
+
+    # --------------------------------------------------
+    # Create the tabs dynamically
+    # --------------------------------------------------
+    tabs = st.tabs(all_types)
+
+    # --------------------------------------------------
+    # FULL ADVANCED UI INSIDE EACH TAB
+    # --------------------------------------------------
+    for index, t in enumerate(all_types):
+        with tabs[index]:
+            st.header(f"{t.title()} Cards")
+
+            df = cards_df
+            type_df = df[df["type"].str.lower() == t.lower()].dropna(subset=["name"])
+            type_df["market_price_clean"] = type_df["market_price"].apply(clean_price)
+
+            # Filters
+            st.subheader("Filters")
+            col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+
+            with col1:
+                sets_available = sorted(type_df["set"].dropna().unique())
+                selected_set = st.selectbox("Set", ["All"] + sets_available, key=f"set_{t}")
+
+            with col2:
+                search_query = st.text_input("Search Name", "", key=f"search_{t}")
+
+            with col3:
+                sort_option = st.selectbox(
+                    "Sort By",
+                    ["Name (A-Z)", "Name (Z-A)", "Price Low→High", "Price High→Low"],
+                    key=f"sort_{t}"
+                )
+
+            with col4:
+                grid_size = st.selectbox("Grid", [3, 4], key=f"grid_{t}")
+
+            # Price slider
+            st.subheader("Price Filter")
+            min_possible = float(type_df["market_price_clean"].min())
+            max_possible = float(type_df["market_price_clean"].max())
+
+            if min_possible == max_possible:
+                min_price, max_price = min_possible, max_possible
+            else:
+                min_price, max_price = st.slider(
+                    "Market Price Range",
+                    min_value=min_possible,
+                    max_value=max_possible,
+                    value=(min_possible, max_possible),
+                    key=f"price_{t}"
+                )
+
+            # Apply filters
+            if selected_set != "All":
+                type_df = type_df[type_df["set"] == selected_set]
+
+            if search_query.strip():
+                type_df = type_df[type_df["name"].str.contains(search_query, case=False, na=False)]
+
+            type_df = type_df[
+                (type_df["market_price_clean"] >= min_price) &
+                (type_df["market_price_clean"] <= max_price)
+            ]
+
+            if selected_set == "All":
+                type_df = type_df.sort_values("set", ascending=False)
+
+            if sort_option == "Name (A-Z)":
+                type_df = type_df.sort_values("name")
+            elif sort_option == "Name (Z-A)":
+                type_df = type_df.sort_values("name", ascending=False)
+            elif sort_option == "Price Low→High":
+                type_df = type_df.sort_values("market_price_clean")
+            elif sort_option == "Price High→Low":
+                type_df = type_df.sort_values("market_price_clean", ascending=False)
+
+            # Pagination
+            st.subheader("Results")
+            per_page = st.selectbox("Results per page", [9, 45, 99], index=0, key=f"per_page_{t}")
+
+            if f"page_{t}" not in st.session_state:
+                st.session_state[f"page_{t}"] = 1
+
+            total_items = len(type_df)
+            total_pages = (total_items - 1) // per_page + 1
+
+            start_idx = (st.session_state[f"page_{t}"] - 1) * per_page
+            end_idx = start_idx + per_page
+
+            page_df = type_df.iloc[start_idx:end_idx]
+
+            # Card Grid
+            for i in range(0, len(page_df), grid_size):
+                cols = st.columns(grid_size)
+                for j, card in enumerate(page_df.iloc[i:i + grid_size].to_dict(orient="records")):
+                    with cols[j]:
+                        img_link = card.get("image_link", "")
+                        if img_link and img_link.lower() != "loading...":
+                            st.image(img_link, use_container_width=True)
+                        else:
+                            st.image("https://via.placeholder.com/150", use_container_width=True)
+
+                        st.markdown(f"**{card['name']}**")
+                        st.markdown(
+                            f"Set: {card.get('set','')}  \n"
+                            f"Condition: {card.get('condition','')}  \n"
+                            f"Sell: {card.get('sell_price','')} | Market: {card.get('market_price','')}"
+                        )
+
+            # Pagination buttons
+            col_prev, col_page, col_next = st.columns([1, 2, 1])
+
+            with col_prev:
+                if st.button("⬅️ Previous", key=f"prev_{t}") and st.session_state[f"page_{t}"] > 1:
+                    st.session_state[f"page_{t}"] -= 1
+
+            with col_page:
+                st.markdown(f"Page {st.session_state[f'page_{t}']} of {total_pages}")
+
+            with col_next:
+                if st.button("➡️ Next", key=f"next_{t}") and st.session_state[f"page_{t}"] < total_pages:
+                    st.session_state[f"page_{t}"] += 1
+
+
+
+# =====================================================
+# ADMIN PAGE
+# =====================================================
+ADMIN_PASSWORD = "abc123"
+
+with tab_admin:
+    password = st.text_input("Enter Admin Password", type="password")
+
+    if password == ADMIN_PASSWORD:
+        st.success("Access granted!")
+        st.subheader("Existing Cards (Table View)")
+        st.dataframe(cards_df, use_container_width=True)
+    else:
+        st.info("Enter password to access admin panel.")
