@@ -1,5 +1,6 @@
 import pandas as pd
 import streamlit as st
+import re
 
 # -----------------------------------------------------
 # GOOGLE SHEET URLS
@@ -22,10 +23,15 @@ SLABS_SHEET_URL = (
 # -----------------------------------------------------
 def clean_price(x):
     """Converts price strings like '$1,234.56' or '100' into floats."""
+    if pd.isna(x):
+        return 0.0
+
     try:
-        return float(str(x).replace("$", "").replace(",", "").strip())
+        cleaned = re.sub(r"[^0-9.]", "", str(x))
+        return float(cleaned)
     except:
         return 0.0
+
 
 # -----------------------------------------------------
 # BUILD TYPE LIST (used by Cards UI)
@@ -33,7 +39,7 @@ def clean_price(x):
 def build_types(df: pd.DataFrame):
     """
     Generates an ordered list of card types.
-    Priority order if available:
+    Priority order if present:
         - Pokemon
         - One Piece
         - Magic the Gathering
@@ -50,13 +56,13 @@ def build_types(df: pd.DataFrame):
         if str(t).strip() != ""
     ]
 
-    # Keep priority only if present
+    # Keep priority if they exist
     priority_found = [
         name for name in priority
         if name.lower() in [t.lower() for t in raw_types]
     ]
 
-    # Remaining types sorted alphabetically
+    # Remaining sorted alphabetically
     rest = sorted([
         t.title()
         for t in raw_types
@@ -65,26 +71,52 @@ def build_types(df: pd.DataFrame):
 
     return priority_found + rest
 
+
 # -----------------------------------------------------
 # LOAD CARDS DATA
 # -----------------------------------------------------
 @st.cache_data(ttl=300)
 def load_cards():
-    """Loads raw cards from Google Sheets."""
+    """Loads cards CSV and adds clean price."""
     try:
         df = pd.read_csv(CARDS_SHEET_URL)
+
+        # clean raw price column if present
+        if "raw_price" in df.columns:
+            df["price"] = df["raw_price"].apply(clean_price)
+        else:
+            df["price"] = 0.0
+
         return df
-    except:
+
+    except Exception as e:
+        st.error(f"Error loading cards: {e}")
         return pd.DataFrame()
+
 
 # -----------------------------------------------------
 # LOAD SLABS DATA
 # -----------------------------------------------------
 @st.cache_data(ttl=300)
 def load_slabs():
-    """Loads graded slabs from Google Sheets."""
+    """Loads graded slabs and applies clean_price()."""
     try:
         df = pd.read_csv(SLABS_SHEET_URL)
+
+        # accept either raw_price or slab_price
+        price_col = None
+        if "raw_price" in df.columns:
+            price_col = "raw_price"
+        elif "slab_price" in df.columns:
+            price_col = "slab_price"
+
+        if price_col:
+            df["price"] = df[price_col].apply(clean_price)
+        else:
+            df["price"] = 0.0
+
         return df
-    except:
+
+    except Exception as e:
+        st.error(f"Error loading slabs: {e}")
         return pd.DataFrame()
