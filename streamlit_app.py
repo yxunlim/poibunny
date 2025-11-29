@@ -2,19 +2,19 @@ import streamlit as st
 import nbformat
 from nbconvert import HTMLExporter
 
-st.set_page_config(page_title="Notebook Reader", layout="wide")
+st.set_page_config(page_title="POiBUNNY", layout="wide")
 
 # ---- Sidebar ----
-st.sidebar.title("Notebook Reader")
-st.sidebar.write("Reads local .ipynb files in the repository")
+st.sidebar.title("Welcome to my Collection")
+st.sidebar.write("Feel free to email me at lynx1186@hotmail.com to purchase my cards")
 
 # ---- Main Tabs ----
-tab1, tab2 = st.tabs(["Landing Page", "Read Notebook"])
+tab1, tab2 = st.tabs(["Main", "Cards"])
 
 # ---- Landing Page ----
 with tab1:
     st.title("Hello World")
-    st.write("This landing page is ready to load additional notebooks in the future.")
+    st.write("Market Price follows PriceCharting at USD prices. Listing price is default 1.1x, always happy to discuss")
 
 # ---- Notebook Reader ----
 with tab2:
