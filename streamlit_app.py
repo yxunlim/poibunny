@@ -1,5 +1,79 @@
 import streamlit as st
 from cards_tab import load_cards, clean_price, build_types
+import streamlit.components.v1 as components
+
+def card_carousel(cards):
+    """
+    cards = list of dicts with keys:
+    name, image_link, set, condition, sell_price, market_price
+    """
+
+    # Build HTML slides
+    slides_html = ""
+    for card in cards:
+        img = card.get("image_link", "")
+        if not img or img.lower() == "loading...":
+            img = "https://via.placeholder.com/300"
+
+        slides_html += f"""
+        <div class="slide">
+            <img src="{img}" class="carousel-img" />
+            <div class="carousel-text">
+                <h3>{card['name']}</h3>
+                <p><strong>Set:</strong> {card.get('set','')}</p>
+                <p><strong>Condition:</strong> {card.get('condition','')}</p>
+                <p><strong>Sell:</strong> {card.get('sell_price','')}</p>
+                <p><strong>Market:</strong> {card.get('market_price','')}</p>
+            </div>
+        </div>
+        """
+
+    html = f"""
+    <style>
+        .carousel-container {{
+            width: 100%;
+            max-width: 400px;
+            margin: auto;
+            position: relative;
+        }}
+        .slide {{
+            display: none;
+            text-align: center;
+        }}
+        .carousel-img {{
+            width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 0 8px rgba(0,0,0,0.2);
+        }}
+        .carousel-text {{
+            margin-top: 10px;
+        }}
+    </style>
+
+    <div class="carousel-container">
+        {slides_html}
+    </div>
+
+    <script>
+        let slideIndex = 0;
+        const slides = window.parent.document.querySelectorAll('.carousel-container .slide');
+
+        function showSlides() {{
+            for (let i = 0; i < slides.length; i++) {{
+                slides[i].style.display = "none";
+            }}
+            slideIndex++;
+            if (slideIndex > slides.length) {{ slideIndex = 1; }}
+            slides[slideIndex - 1].style.display = "block";
+        }}
+
+        showSlides();
+        setInterval(showSlides, 5000);  // 5 seconds rotation
+    </script>
+    """
+
+    components.html(html, height=550)
+
 
 st.set_page_config(page_title="POiBUNNY", layout="wide")
 
@@ -30,7 +104,19 @@ with tab_main:
     st.title("Hello World")
     st.write("Market Price follows PriceCharting at USD prices.")
     st.write("Listing price defaults to 1.1x — always happy to discuss!")
+    st.title("Featured Cards")
 
+    df = st.session_state.cards_df.dropna(subset=["name"]).copy()
+
+    # Pick 3–5 random featured cards
+    num = min(5, max(3, len(df)))
+    featured_df = df.sample(num)
+
+    # Convert card rows → dicts
+    cards_list = featured_df.to_dict(orient="records")
+
+    # Carousel display
+    card_carousel(cards_list)
 
 # =====================================================
 # CARDS PAGE
