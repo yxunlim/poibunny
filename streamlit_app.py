@@ -8,7 +8,7 @@ st.sidebar.title("Welcome to my Collection")
 st.sidebar.write("Feel free to email me at lynx1186@hotmail.com to purchase my cards")
 
 # ---- Main Tabs ----
-tab1, tab2 = st.tabs(["Main", "Cards"])
+tab1, tab2 = st.tabs(["Main", "Cards", "Admin"])
 
 # ---- Landing Page ----
 with tab1:
