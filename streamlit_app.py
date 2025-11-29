@@ -10,21 +10,6 @@ if "cards_df" not in st.session_state:
 
 cards_df = st.session_state.cards_df
 
-# ------------------- BUILD TABS -------------------
-priority_display = ["Pokemon", "One Piece", "Magic the Gathering"]
-priority_lookup = [p.lower() for p in priority_display]
-
-raw_types = sorted(set(
-    t.strip()
-    for t in cards_df["type"].dropna()
-    if str(t).strip() != ""
-))
-
-priority_types = [p for p in priority_display if p.lower() in [rt.lower() for rt in raw_types]]
-remaining_types = sorted([t.title() for t in raw_types if t.lower() not in priority_lookup])
-
-all_types = priority_types + remaining_types
-
 # ---- Main Tabs ----
 tab_main, tab_cards, tab_admin = st.tabs(["Main", "Cards", "Admin"])
 
