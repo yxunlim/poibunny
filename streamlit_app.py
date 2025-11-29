@@ -1,4 +1,5 @@
 import streamlit as st
+import cards_tab   # ⬅️ your module that loads df
 
 st.set_page_config(page_title="POiBUNNY", layout="wide")
 
@@ -13,3 +14,8 @@ tab1, tab2 = st.tabs(["Main", "Cards"])
 with tab1:
     st.title("Hello World")
     st.write("Market Price follows PriceCharting at USD prices. Listing price is default 1.1x, always happy to discuss")
+
+# ---- Cards Page ----
+with tab2:
+    st.title("My Cards")
+    st.dataframe(cards_tab.df)   # ⬅️ display the dataframe from cards_tab.py
