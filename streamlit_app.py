@@ -20,5 +20,12 @@ with tab2:
     st.title("My Cards")
 
 # ---- Admin Page ----
+ADMIN_PASSWORD = "abc123"
 with tab3:
+    password = st.text_input("Enter Admin Password", type="password")
+    if password == ADMIN_PASSWORD:
+        st.success("Access granted!")
+        st.subheader("Existing Cards (Table View)")
+        st.dataframe(st.session_state.cards_df)
+    st.title("My Cards")
     st.dataframe(cards_tab.df)
