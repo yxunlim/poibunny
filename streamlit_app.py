@@ -32,7 +32,6 @@ tab_main, tab_cards, tab_admin = st.tabs(["Main", "Cards", "Admin"])
 with tab_main:
     st.title("Hello World")
     st.write("Market Price follows PriceCharting at USD prices.")
-    st.write("Listing price follows PriceCharting at USD prices.")
     st.write("Listing price defaults to 1.1x — always happy to discuss!")
 
     st.markdown("## ⭐ Featured Cards")
