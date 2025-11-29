@@ -28,6 +28,8 @@ st.sidebar.write("Feel free to email me at lynx1186@hotmail.com to purchase my c
 # -----------------------------------------------------
 tab_main, tab_cards, tab_slabs, tab_admin = st.tabs(["Main", "Cards", "Slabs", "Admin"])
 
+
+
 # =====================================================
 # MAIN PAGE — Featured Cards
 # =====================================================
@@ -39,19 +41,10 @@ with tab_main:
     st.markdown("## ⭐ Featured Cards")
 
     # =========================================
-    # Weighted randomness — expensive cards appear more
+    # Weighted randomness — weight by card price
     # =========================================
     temp_df = cards_df.copy()
-    temp_df["market_price_clean"] = (
-        temp_df["market_price"]
-        .fillna("0")
-        .replace("", "0")
-        .apply(
-            lambda x: float(str(x).replace("$", "").strip())
-            if str(x).replace("$", "").strip().replace(".", "").isdigit()
-            else 0
-        )
-    )
+    temp_df["market_price_clean"] = temp_df["price"].fillna(0)
 
     weights = temp_df["market_price_clean"] + 1
     weights = weights / weights.sum()
@@ -92,10 +85,12 @@ with tab_main:
             st.markdown(
                 f"Set: {card.get('set','')}  \n"
                 f"Condition: {card.get('condition','')}  \n"
-                f"Sell: {card.get('sell_price','')} | Market: {card.get('market_price','')}"
+                f"Sell: {card.get('sell_price','')} | Market: {card.get('price','')}"
             )
 
             col.markdown("</div>", unsafe_allow_html=True)
+
+
 
 # =====================================================
 # CARDS PAGE
@@ -105,35 +100,14 @@ with tab_cards:
 
     cards_df = st.session_state.cards_df
 
-    # Priority sorting
-    priority_display = ["Pokemon", "One Piece", "Magic the Gathering"]
-    priority_lookup = [p.lower() for p in priority_display]
-
-    raw_types = [
-        t.strip() for t in cards_df["type"].dropna().unique()
-        if str(t).strip() != ""
-    ]
-
-    priority_types = []
-    for disp, key in zip(priority_display, priority_lookup):
-        if key in [r.lower() for r in raw_types]:
-            priority_types.append(disp)
-
-    remaining_types = sorted([
-        t.title() for t in raw_types if t.lower() not in priority_lookup
-    ])
-
-    all_types = priority_types + remaining_types
-
     tabs = st.tabs(all_types)
 
     for index, t in enumerate(all_types):
         with tabs[index]:
             st.header(f"{t.title()} Cards")
 
-            df = cards_df
-            type_df = df[df["type"].str.lower() == t.lower()].dropna(subset=["name"])
-            type_df["market_price_clean"] = type_df["market_price"].apply(clean_price)
+            df = cards_df[cards_df["type"].str.lower() == t.lower()].dropna(subset=["name"])
+            df["market_price_clean"] = df["price"].fillna(0)
 
             # -----------------------------
             # Filters
@@ -142,7 +116,7 @@ with tab_cards:
             col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
 
             with col1:
-                sets_available = sorted(type_df["set"].dropna().unique())
+                sets_available = sorted(df["set"].dropna().unique())
                 selected_set = st.selectbox("Set", ["All"] + sets_available, key=f"set_{t}")
 
             with col2:
@@ -160,8 +134,8 @@ with tab_cards:
 
             # Price slider
             st.subheader("Price Filter")
-            min_possible = float(type_df["market_price_clean"].min())
-            max_possible = float(type_df["market_price_clean"].max())
+            min_possible = float(df["market_price_clean"].min())
+            max_possible = float(df["market_price_clean"].max())
 
             if min_possible == max_possible:
                 min_price, max_price = min_possible, max_possible
@@ -176,27 +150,25 @@ with tab_cards:
 
             # Apply filters
             if selected_set != "All":
-                type_df = type_df[type_df["set"] == selected_set]
+                df = df[df["set"] == selected_set]
 
             if search_query.strip():
-                type_df = type_df[type_df["name"].str.contains(search_query, case=False, na=False)]
+                df = df[df["name"].str.contains(search_query, case=False, na=False)]
 
-            type_df = type_df[
-                (type_df["market_price_clean"] >= min_price) &
-                (type_df["market_price_clean"] <= max_price)
+            df = df[
+                (df["market_price_clean"] >= min_price) &
+                (df["market_price_clean"] <= max_price)
             ]
 
-            if selected_set == "All":
-                type_df = type_df.sort_values("set", ascending=False)
-
+            # Sorting
             if sort_option == "Name (A-Z)":
-                type_df = type_df.sort_values("name")
+                df = df.sort_values("name")
             elif sort_option == "Name (Z-A)":
-                type_df = type_df.sort_values("name", ascending=False)
+                df = df.sort_values("name", ascending=False)
             elif sort_option == "Price Low→High":
-                type_df = type_df.sort_values("market_price_clean")
+                df = df.sort_values("market_price_clean")
             elif sort_option == "Price High→Low":
-                type_df = type_df.sort_values("market_price_clean", ascending=False)
+                df = df.sort_values("market_price_clean", ascending=False)
 
             # -----------------------------
             # Pagination
@@ -207,13 +179,13 @@ with tab_cards:
             if f"page_{t}" not in st.session_state:
                 st.session_state[f"page_{t}"] = 1
 
-            total_items = len(type_df)
+            total_items = len(df)
             total_pages = (total_items - 1) // per_page + 1
 
             start_idx = (st.session_state[f"page_{t}"] - 1) * per_page
             end_idx = start_idx + per_page
 
-            page_df = type_df.iloc[start_idx:end_idx]
+            page_df = df.iloc[start_idx:end_idx]
 
             # -----------------------------
             # Card Grid
@@ -232,7 +204,7 @@ with tab_cards:
                         st.markdown(
                             f"Set: {card.get('set','')}  \n"
                             f"Condition: {card.get('condition','')}  \n"
-                            f"Sell: {card.get('sell_price','')} | Market: {card.get('market_price','')}"
+                            f"Sell: {card.get('sell_price','')} | Market: {card.get('price','')}"
                         )
 
             # -----------------------------
@@ -252,6 +224,7 @@ with tab_cards:
                     st.session_state[f"page_{t}"] += 1
 
 
+
 # =====================================================
 # SLABS PAGE
 # =====================================================
@@ -259,9 +232,7 @@ with tab_slabs:
     st.title("Graded Slabs")
 
     df = slabs_df.copy()
-
-    # Clean price
-    df["PriceClean"] = df["Price"].apply(clean_price)
+    df["price_clean"] = df["price"].fillna(0)
 
     # -----------------------------
     # Filters
@@ -299,9 +270,9 @@ with tab_slabs:
     elif sort_option == "Grade Low→High":
         df = df.sort_values("CardGrade")
     elif sort_option == "Price Low→High":
-        df = df.sort_values("PriceClean")
+        df = df.sort_values("price_clean")
     elif sort_option == "Price High→Low":
-        df = df.sort_values("PriceClean", ascending=False)
+        df = df.sort_values("price_clean", ascending=False)
 
     # -----------------------------
     # Pagination
@@ -340,7 +311,7 @@ with tab_slabs:
                 st.markdown(
                     f"Set: {card['Variety']}  \n"
                     f"Grade: {card['CardGrade']}  \n"
-                    f"Sell: {card.get('sell_price','')} | Market: {card.get('Price','')}"
+                    f"Sell: {card.get('sell_price','')} | Market: {card.get('price','')}"
                 )
 
     # Pagination buttons
@@ -356,6 +327,7 @@ with tab_slabs:
     with col_next:
         if st.button("➡️ Next Slabs") and st.session_state.slab_page < total_pages:
             st.session_state.slab_page += 1
+
 
 
 # =====================================================
