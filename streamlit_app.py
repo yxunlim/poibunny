@@ -1,112 +1,70 @@
-import sys
-import random
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import (
-    QApplication, QWidget, QLabel, QVBoxLayout, QStackedWidget,
-    QPushButton, QHBoxLayout
+import pandas as pd
+import streamlit as st
+
+# -----------------------------------------------------
+# GOOGLE SHEETS SOURCE (edit if needed)
+# -----------------------------------------------------
+CARDS_SHEET_URL = (
+    "https://docs.google.com/spreadsheets/d/"
+    "1lTiPG_g1MFD6CHvbNCjXOlfYNnHo95QvXNwFK5aX_aw/export?format=csv&gid=0"
 )
 
-from cards_tab import CardsTab
+# -----------------------------------------------------
+# LOAD CARDS DATA
+# -----------------------------------------------------
+@st.cache_data(ttl=300)
+def load_cards():
+    """Loads card data from Google Sheets and returns a DataFrame."""
+    try:
+        df = pd.read_csv(CARDS_SHEET_URL)
+        # Normalize column names to lower for robustness (optional)
+        # df.columns = [c.strip() for c in df.columns]
+        return df
+    except Exception as e:
+        st.error(f"Failed to load Cards sheet: {e}")
+        return pd.DataFrame()
 
 
-class FeaturedCarousel(QWidget):
-    def __init__(self, cards, interval=5000, count=5):
-        super().__init__()
-        self.cards = random.sample(cards, min(count, len(cards)))
-        self.current_index = 0
-
-        self.layout = QVBoxLayout()
-        self.setLayout(self.layout)
-
-        self.title_label = QLabel("Featured Card")
-        self.title_label.setAlignment(Qt.AlignCenter)
-        self.title_label.setStyleSheet("font-size: 22px; font-weight: bold;")
-        self.layout.addWidget(self.title_label)
-
-        self.image_label = QLabel()
-        self.image_label.setAlignment(Qt.AlignCenter)
-        self.layout.addWidget(self.image_label)
-
-        self.name_label = QLabel()
-        self.name_label.setAlignment(Qt.AlignCenter)
-        self.name_label.setStyleSheet("font-size: 18px;")
-        self.layout.addWidget(self.name_label)
-
-        self.desc_label = QLabel()
-        self.desc_label.setWordWrap(True)
-        self.desc_label.setAlignment(Qt.AlignCenter)
-        self.layout.addWidget(self.desc_label)
-
-        # Rotating every 5 seconds
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.next_card)
-        self.timer.start(interval)
-
-        self.update_card()
-
-    def update_card(self):
-        if not self.cards:
-            self.name_label.setText("No featured cards available.")
-            return
-
-        card = self.cards[self.current_index]
-
-        self.name_label.setText(card["name"])
-        self.desc_label.setText(card["description"])
-
-        pixmap = QPixmap(card["image_path"])
-        if not pixmap.isNull():
-            scaled = pixmap.scaled(350, 350, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            self.image_label.setPixmap(scaled)
-
-    def next_card(self):
-        self.current_index = (self.current_index + 1) % len(self.cards)
-        self.update_card()
+# -----------------------------------------------------
+# CLEAN PRICE FIELD
+# -----------------------------------------------------
+def clean_price(x):
+    """Converts price strings like '$1,234.56' into floats; returns 0.0 on failure."""
+    try:
+        return float(str(x).replace("$", "").replace(",", "").strip())
+    except:
+        return 0.0
 
 
-class MainWindow(QWidget):
-    def __init__(self):
-        super().__init__()
+# -----------------------------------------------------
+# BUILD LIST OF ALL CARD TYPES
+# -----------------------------------------------------
+def build_types(df: pd.DataFrame):
+    """
+    Generates an ordered list of types.
+    Priority types (Pokemon, One Piece, Magic the Gathering) are placed first if present.
+    """
+    if df is None or df.empty or "type" not in df.columns:
+        return []
 
-        self.setWindowTitle("Card App")
-        self.resize(900, 600)
+    priority_display = ["Pokemon", "One Piece", "Magic the Gathering"]
+    priority_lookup = [p.lower() for p in priority_display]
 
-        self.stack = QStackedWidget()
+    raw_types = [
+        t.strip()
+        for t in df["type"].dropna().unique()
+        if str(t).strip() != ""
+    ]
 
-        # Load full card list from CardsTab
-        self.cards_tab = CardsTab()
-        self.all_cards = self.cards_tab.cards
+    # preserve priority order only if present
+    priority_types = [
+        disp for disp, key in zip(priority_display, priority_lookup)
+        if key in [r.lower() for r in raw_types]
+    ]
 
-        # Main page with featured card carousel
-        self.main_page = QWidget()
-        self.main_layout = QVBoxLayout()
-        self.main_page.setLayout(self.main_layout)
+    remaining_types = sorted([
+        t.title() for t in raw_types
+        if t.lower() not in priority_lookup
+    ])
 
-        self.carousel = FeaturedCarousel(self.all_cards)
-        self.main_layout.addWidget(self.carousel)
-
-        # Navigation button
-        go_cards_btn = QPushButton("Go to Cards")
-        go_cards_btn.clicked.connect(lambda: self.stack.setCurrentIndex(1))
-        self.main_layout.addWidget(go_cards_btn)
-
-        # Add pages
-        self.stack.addWidget(self.main_page)
-        self.stack.addWidget(self.cards_tab)
-
-        # Final window layout
-        main_layout = QVBoxLayout()
-        main_layout.addWidget(self.stack)
-        self.setLayout(main_layout)
-
-
-def main():
-    app = QApplication(sys.argv)
-    win = MainWindow()
-    win.show()
-    sys.exit(app.exec_())
-
-
-if __name__ == "__main__":
-    main()
+    return priority_types + remaining_types
