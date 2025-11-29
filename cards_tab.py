@@ -17,13 +17,10 @@ def load_cards():
     """Loads card data from Google Sheets and returns a DataFrame."""
     try:
         df = pd.read_csv(CARDS_SHEET_URL)
-        # Normalize column names to lower for robustness (optional)
-        # df.columns = [c.strip() for c in df.columns]
         return df
     except Exception as e:
-        st.error(f"Failed to load Cards sheet: {e}")
+        # Return empty dataframe (don't call st.error here; keep loader pure)
         return pd.DataFrame()
-
 
 # -----------------------------------------------------
 # CLEAN PRICE FIELD
@@ -34,7 +31,6 @@ def clean_price(x):
         return float(str(x).replace("$", "").replace(",", "").strip())
     except:
         return 0.0
-
 
 # -----------------------------------------------------
 # BUILD LIST OF ALL CARD TYPES
