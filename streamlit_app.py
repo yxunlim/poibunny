@@ -20,5 +20,5 @@ with tab2:
     st.title("My Cards")
 
 # ---- Admin Page ----
-with tab2:
+with tab3:
     st.dataframe(cards_tab.df)
