@@ -45,13 +45,14 @@ with tab_main:
         temp_df["market_price"]
         .fillna("0")
         .replace("", "0")
-        .apply(lambda x: float(str(x).replace("$", "").strip()) if str(x).replace("$", "").strip().replace(".", "").isdigit() else 0)
+        .apply(
+            lambda x: float(str(x).replace("$", "").strip())
+            if str(x).replace("$", "").strip().replace(".", "").isdigit()
+            else 0
+        )
     )
 
-    # Avoid zero weights
     weights = temp_df["market_price_clean"] + 1
-
-    # Normalize weights
     weights = weights / weights.sum()
 
     # =========================================
@@ -65,9 +66,8 @@ with tab_main:
     # =========================================
     if st.button("➡️ Show Next"):
         st.session_state.featured_cards = temp_df.sample(3, weights=weights)
-        st.experimental_rerun()
+        st.rerun()
 
-    # Bring selected cards
     featured_cards = st.session_state.featured_cards
 
     # =========================================
@@ -76,16 +76,14 @@ with tab_main:
     st.markdown(
         """
         <style>
-        .fade-card {
-            animation: fadein 0.9s ease-in-out;
-        }
+        .fade-card { animation: fadein 0.9s ease-in-out; }
         @keyframes fadein {
             from { opacity: 0; transform: translateY(6px); }
-            to   { opacity: 1; transform: translateY(0px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
         </style>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     # =========================================
@@ -111,7 +109,6 @@ with tab_main:
             )
 
             col.markdown("</div>", unsafe_allow_html=True)
-
 
 # =====================================================
 # CARDS PAGE
