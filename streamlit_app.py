@@ -36,16 +36,63 @@ with tab_main:
 # CARDS PAGE
 # =====================================================
 with tab_cards:
-    st.title("Browse Cards")
+    st.title("My Cards")
 
-    selected_type = st.selectbox("Filter by Type", ["All"] + all_types)
+    cards_df = st.session_state.cards_df
 
-    if selected_type == "All":
-        filtered_df = cards_df
-    else:
-        filtered_df = cards_df[cards_df["type"].str.lower() == selected_type.lower()]
+    # --------------------------------------------------
+    # Build dynamic tabs from CSV
+    # --------------------------------------------------
+    priority_display = ["Pokemon", "One Piece", "Magic the Gathering"]
+    priority_lookup = [p.lower() for p in priority_display]
 
-    st.dataframe(filtered_df, use_container_width=True)
+    raw_types = [
+        t.strip() for t in cards_df["type"].dropna().unique()
+        if str(t).strip() != ""
+    ]
+
+    priority_types = []
+    for disp, key in zip(priority_display, priority_lookup):
+        if key in [r.lower() for r in raw_types]:
+            priority_types.append(disp)
+
+    remaining_types = sorted([
+        t.title()
+        for t in raw_types
+        if t.lower() not in priority_lookup
+    ])
+
+    all_types = priority_types + remaining_types
+
+    # --------------------------------------------------
+    # Create dynamic tabs
+    # --------------------------------------------------
+    tabs = st.tabs(all_types + ["Slabs", "Tracking", "Admin Panel"])
+
+    # --------------------------------------------------
+    # For each type tab, show only those cards
+    # --------------------------------------------------
+    for index, t in enumerate(all_types):
+        with tabs[index]:
+            st.header(f"{t} Cards")
+
+            type_df = cards_df[cards_df["type"].str.lower() == t.lower()]
+            st.dataframe(type_df, use_container_width=True)
+
+    # --------------------------------------------------
+    # Extra static tabs
+    # --------------------------------------------------
+    with tabs[len(all_types)]:  # Slabs
+        st.header("Slabs")
+        st.write("Slab data coming soon...")
+
+    with tabs[len(all_types) + 1]:  # Tracking
+        st.header("Tracking")
+        st.write("Tracking dashboard coming soon...")
+
+    with tabs[len(all_types) + 2]:  # Admin Panel
+        st.header("Admin Panel")
+        st.write("Admin tools coming soon...")
 
 
 # =====================================================
