@@ -2,6 +2,7 @@ import streamlit as st
 from cards_tab import load_cards, clean_price, build_types
 import time
 import random
+import numpy as np
 
 st.set_page_config(page_title="POiBUNNY", layout="wide")
 
@@ -31,44 +32,65 @@ tab_main, tab_cards, tab_admin = st.tabs(["Main", "Cards", "Admin"])
 with tab_main:
     st.title("Hello World")
     st.write("Market Price follows PriceCharting at USD prices.")
+    st.write("Listing price follows PriceCharting at USD prices.")
     st.write("Listing price defaults to 1.1x — always happy to discuss!")
 
     st.markdown("## ⭐ Featured Cards")
 
-    # =============================
-    # Auto-refresh every 10 seconds
-    # =============================
-    now = int(time.time())
-    if "last_refresh" not in st.session_state:
-        st.session_state.last_refresh = now
+    # =========================================
+    # CREATE WEIGHTS — More expensive → more common
+    # =========================================
+    temp_df = cards_df.copy()
+    temp_df["market_price_clean"] = (
+        temp_df["market_price"]
+        .fillna("0")
+        .replace("", "0")
+        .apply(lambda x: float(str(x).replace("$", "").strip()) if str(x).replace("$", "").strip().replace(".", "").isdigit() else 0)
+    )
 
-    # If 10 seconds passed → rerun
-    if now - st.session_state.last_refresh >= 10:
-        st.session_state.last_refresh = now
+    # Avoid zero weights
+    weights = temp_df["market_price_clean"] + 1
+
+    # Normalize weights
+    weights = weights / weights.sum()
+
+    # =========================================
+    # Generate featured cards on first load
+    # =========================================
+    if "featured_cards" not in st.session_state:
+        st.session_state.featured_cards = temp_df.sample(3, weights=weights)
+
+    # =========================================
+    # "Show Next" button → redraw 3 new weighted cards
+    # =========================================
+    if st.button("➡️ Show Next"):
+        st.session_state.featured_cards = temp_df.sample(3, weights=weights)
         st.experimental_rerun()
 
-    # =============================
-    # Pick 3 random cards
-    # =============================
-    featured_cards = cards_df.sample(3)
+    # Bring selected cards
+    featured_cards = st.session_state.featured_cards
 
-    # Fade-in CSS
+    # =========================================
+    # Fade-in CSS animation
+    # =========================================
     st.markdown(
         """
         <style>
         .fade-card {
-            animation: fadein 1.2s ease-in-out;
+            animation: fadein 0.9s ease-in-out;
         }
         @keyframes fadein {
-            from { opacity: 0; }
-            to   { opacity: 1; }
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0px); }
         }
         </style>
         """,
         unsafe_allow_html=True
     )
 
-    # Display them
+    # =========================================
+    # Display 3 Featured Cards
+    # =========================================
     cols = st.columns(3)
 
     for col, (_, card) in zip(cols, featured_cards.iterrows()):
