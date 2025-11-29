@@ -27,6 +27,102 @@ st.sidebar.write("Feel free to email me at lynx1186@hotmail.com to purchase my c
 tab_main, tab_cards, tab_admin = st.tabs(["Main", "Cards", "Admin"])
 
 # =====================================================
+# LOAD SLABS (new Google Sheet tab)
+# =====================================================
+@st.cache_data
+def load_slabs():
+    import pandas as pd
+
+    SHEET_URL = "YOUR_GOOGLE_SHEET_URL_HERE"  # <-- replace with same URL
+
+    # The slabs sheet must be the 2nd tab (gid=1) unless yours differs
+    SLABS_URL = SHEET_URL.replace("gid=0", "gid=1")
+
+    df = pd.read_csv(SLABS_URL)
+
+    # Clean numeric prices
+    def clean_price_value(x):
+        if pd.isna(x):
+            return 0
+        x = str(x).replace("$", "").strip()
+        try:
+            return float(x)
+        except:
+            return 0
+
+    df["Price_clean"] = df["Price"].apply(clean_price_value)
+    df["sell_price_clean"] = df["sell_price"].apply(clean_price_value)
+
+    return df
+
+
+# =====================================================
+# SLABS TAB
+# =====================================================
+tab_main, tab_cards, tab_slabs, tab_admin = st.tabs(["Main", "Cards", "Slabs", "Admin"])
+
+with tab_slabs:
+    st.title("Graded Slabs")
+
+    slabs_df = load_slabs()
+
+    # ============================
+    # Filters
+    # ============================
+    st.subheader("Filters")
+
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        brands = ["All"] + sorted(slabs_df["Brand"].dropna().unique())
+        selected_brand = st.selectbox("Brand", brands)
+
+    with col2:
+        search_query = st.text_input("Search Subject")
+
+    if selected_brand != "All":
+        slabs_df = slabs_df[slabs_df["Brand"] == selected_brand]
+
+    if search_query.strip():
+        slabs_df = slabs_df[
+            slabs_df["Subject"].str.contains(search_query, case=False, na=False)
+        ]
+
+    # ============================
+    # Grid Display
+    # ============================
+    st.subheader("Results")
+    grid_size = st.selectbox("Grid", [3, 4], index=0)
+
+    for i in range(0, len(slabs_df), grid_size):
+        cols = st.columns(grid_size)
+        row = slabs_df.iloc[i : i + grid_size]
+
+        for j, (_, slab) in enumerate(row.iterrows()):
+            with cols[j]:
+                img = slab["image_link"]
+                if img and img.lower() != "loading...":
+                    st.image(img, use_container_width=True)
+                else:
+                    st.image("https://via.placeholder.com/200", use_container_width=True)
+
+                # ======================
+                # Display slab details
+                # ======================
+                title = f"{slab['Subject']}  #{slab['CardNumber']}"
+                set_line = f"Set: {slab.get('Variety','')}"
+                grade_line = f"Grade: {slab.get('CardGrade','')}"
+                price_line = (
+                    f"Sell: {slab.get('sell_price','')} | Market: {slab.get('Price','')}"
+                )
+
+                st.markdown(f"**{title}**")
+                st.markdown(set_line)
+                st.markdown(grade_line)
+                st.markdown(price_line)
+
+
+# =====================================================
 # MAIN PAGE
 # =====================================================
 with tab_main:
