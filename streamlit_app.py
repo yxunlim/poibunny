@@ -67,7 +67,7 @@ with tab_cards:
     # --------------------------------------------------
     # Create dynamic tabs
     # --------------------------------------------------
-    tabs = st.tabs(all_types + ["Slabs", "Tracking", "Admin Panel"])
+    tabs = st.tabs(all_types)
 
     # --------------------------------------------------
     # For each type tab, show only those cards
