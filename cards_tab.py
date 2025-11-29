@@ -20,7 +20,13 @@ def load_cards():
 @st.cache_data
 def load_slabs():
     try:
-        return pd.read_csv(SLABS_URL)
+        df = pd.read_csv(SLABS_URL)
+
+        # Normalise price column: slab_price → Price
+        if "slab_price" in df.columns and "Price" not in df.columns:
+            df.rename(columns={"slab_price": "Price"}, inplace=True)
+
+        return df
     except Exception as e:
         st.error(f"Failed loading SLABS sheet: {e}")
         return pd.DataFrame()
@@ -54,13 +60,10 @@ def cards_tab():
         return
 
     # ---------------------------------------------
-    # Clean price columns safely
+    # Clean price columns
     # ---------------------------------------------
     for col in ["Price", "sell_price", "raw"]:
-        if col in df.columns:
-            df[col + "_clean"] = df[col].apply(clean_price)
-        else:
-            df[col + "_clean"] = 0
+        df[col + "_clean"] = df[col].apply(clean_price) if col in df else 0
 
     # ---------------------------------------------
     # Filters
@@ -98,19 +101,18 @@ def cards_tab():
     st.subheader(f"Results ({len(filtered)} cards)")
 
     # ---------------------------------------------
-    # Display with images
+    # Display each card block
     # ---------------------------------------------
     def card_row_display(row):
-        """Render each card row with image + details."""
         cols = st.columns([1, 3])
 
         # Image
         if "image_link" in row and pd.notna(row["image_link"]):
-            cols[0].image(row["image_link"], width=120, use_container_width=False)
+            cols[0].image(row["image_link"], width=120)
         else:
             cols[0].write("No image")
 
-        # Text Section
+        # Details
         with cols[1]:
             st.write(f"### {row.get('Subject', 'Unknown')}")
             st.write(f"**Brand:** {row.get('Brand', '')}")
@@ -126,15 +128,18 @@ def cards_tab():
 
             profit = sell - price
             profit_color = "green" if profit > 0 else "red"
-            st.markdown(f"**Profit:** <span style='color:{profit_color}'>${profit:,.2f}</span>", unsafe_allow_html=True)
+            st.markdown(
+                f"**Profit:** <span style='color:{profit_color}'>${profit:,.2f}</span>",
+                unsafe_allow_html=True
+            )
 
-    # Loop through display rows
+    # Display items
     for _, row in filtered.iterrows():
         st.markdown("---")
         card_row_display(row)
 
     st.markdown("---")
-    st.success("Cards loaded successfully.")
+    st.success("Cards loaded successfully ✔")
 
 
 # END FILE
