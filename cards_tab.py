@@ -1,99 +1,140 @@
-import pandas as pd
 import streamlit as st
+import pandas as pd
 
-# -----------------------------------------------------
-# GOOGLE SHEETS SOURCE (edit if needed)
-# -----------------------------------------------------
-CARDS_SHEET_URL = (
-    "https://docs.google.com/spreadsheets/d/"
-    "1lTiPG_g1MFD6CHvbNCjXOlfYNnHo95QvXNwFK5aX_aw/export?format=csv&gid=0"
-)
+CARDS_URL = "https://docs.google.com/spreadsheets/d/1lTiPG_g1MFD6CHvbNCjXOlfYNnHo95QvXNwFK5aX_aw/export?format=csv&gid=533371784"
+SLABS_URL = "https://docs.google.com/spreadsheets/d/1LSSAQdQerNWTci5ufYYBr_J3ZHUSlVRyW-rSHkvGqf4/export?format=csv&gid=44140124"
 
 
-# -----------------------------------------------------
-# CLEAN PRICE FIELD (shared)
-# -----------------------------------------------------
-def clean_price(x):
-    """Converts price strings like '$1,234.56' into floats; returns 0.0 on failure."""
+# ---------------------------------------------
+# Loaders
+# ---------------------------------------------
+@st.cache_data
+def load_cards():
     try:
-        return float(str(x).replace("$", "").replace(",", "").strip())
+        return pd.read_csv(CARDS_URL)
+    except Exception as e:
+        st.error(f"Failed loading CARDS sheet: {e}")
+        return pd.DataFrame()
+
+
+@st.cache_data
+def load_slabs():
+    try:
+        return pd.read_csv(SLABS_URL)
+    except Exception as e:
+        st.error(f"Failed loading SLABS sheet: {e}")
+        return pd.DataFrame()
+
+
+# ---------------------------------------------
+# Utility: clean price values safely
+# ---------------------------------------------
+def clean_price(x):
+    if pd.isna(x):
+        return 0.0
+    try:
+        s = str(x).replace(",", "").replace("$", "").strip()
+        return float(s)
     except:
         return 0.0
 
 
-# -----------------------------------------------------
-# LOAD CARDS – SHEET 1 (gid=0)
-# -----------------------------------------------------
-@st.cache_data(ttl=300)
-def load_cards():
-    """Loads card data from Sheet 1 (Cards)."""
-    try:
-        df = pd.read_csv(CARDS_SHEET_URL)
-        return df
-    except Exception:
-        return pd.DataFrame()
+# ---------------------------------------------
+# UI FUNCTION FOR THE TAB
+# ---------------------------------------------
+def cards_tab():
+
+    st.header("📇 Cards Inventory")
+
+    df = load_cards().copy()
+    slabs_df = load_slabs().copy()
+
+    if df.empty:
+        st.warning("Cards sheet is empty or failed to load.")
+        return
+
+    # ---------------------------------------------
+    # Clean price columns safely
+    # ---------------------------------------------
+    for col in ["Price", "sell_price", "raw"]:
+        if col in df.columns:
+            df[col + "_clean"] = df[col].apply(clean_price)
+        else:
+            df[col + "_clean"] = 0
+
+    # ---------------------------------------------
+    # Filters
+    # ---------------------------------------------
+    c1, c2, c3 = st.columns(3)
+
+    brand_filter = c1.selectbox(
+        "Brand",
+        options=["All"] + sorted(df["Brand"].dropna().unique().tolist())
+    )
+
+    subject_filter = c2.text_input("Search Subject / Name")
+
+    show_only_profitable = c3.checkbox("Only show profitable ⚡")
+
+    # ---------------------------------------------
+    # Apply filters
+    # ---------------------------------------------
+    filtered = df.copy()
+
+    if brand_filter != "All":
+        filtered = filtered[filtered["Brand"] == brand_filter]
+
+    if subject_filter.strip():
+        q = subject_filter.lower()
+        filtered = filtered[
+            filtered["Subject"].str.lower().str.contains(q, na=False)
+        ]
+
+    if show_only_profitable:
+        filtered = filtered[
+            filtered["sell_price_clean"] > filtered["Price_clean"]
+        ]
+
+    st.subheader(f"Results ({len(filtered)} cards)")
+
+    # ---------------------------------------------
+    # Display with images
+    # ---------------------------------------------
+    def card_row_display(row):
+        """Render each card row with image + details."""
+        cols = st.columns([1, 3])
+
+        # Image
+        if "image_link" in row and pd.notna(row["image_link"]):
+            cols[0].image(row["image_link"], width=120, use_container_width=False)
+        else:
+            cols[0].write("No image")
+
+        # Text Section
+        with cols[1]:
+            st.write(f"### {row.get('Subject', 'Unknown')}")
+            st.write(f"**Brand:** {row.get('Brand', '')}")
+            st.write(f"**Year:** {row.get('Year', '')}")
+            st.write(f"**Card #** {row.get('CardNumber', '')}")
+            st.write(f"**Grade:** {row.get('CardGrade', '')}")
+
+            price = row.get("Price_clean", 0)
+            sell = row.get("sell_price_clean", 0)
+
+            st.write(f"**Market Price:** ${price:,.2f}")
+            st.write(f"**Sell Price:** ${sell:,.2f}")
+
+            profit = sell - price
+            profit_color = "green" if profit > 0 else "red"
+            st.markdown(f"**Profit:** <span style='color:{profit_color}'>${profit:,.2f}</span>", unsafe_allow_html=True)
+
+    # Loop through display rows
+    for _, row in filtered.iterrows():
+        st.markdown("---")
+        card_row_display(row)
+
+    st.markdown("---")
+    st.success("Cards loaded successfully.")
 
 
-# -----------------------------------------------------
-# LOAD SLABS – SHEET 2 (gid=1)
-# -----------------------------------------------------
-@st.cache_data(ttl=300)
-def load_slabs():
-    """
-    Loads slab data from Sheet 2 (Slabs).
-    Uses the SAME spreadsheet, only switching gid=0 → gid=1.
-    """
-    try:
-        slabs_url = CARDS_SHEET_URL.replace("gid=0", "gid=1")
-        df = pd.read_csv(slabs_url)
-
-        # Ensure numeric prices exist and are clean
-        price_columns = {
-            "Price": "PriceClean",
-            "sell_price": "SellPriceClean"
-        }
-
-        for col, newcol in price_columns.items():
-            if col in df.columns:
-                df[newcol] = df[col].apply(clean_price)
-            else:
-                df[newcol] = 0.0  # missing column fallback
-
-        return df
-
-    except Exception:
-        return pd.DataFrame()
-
-
-# -----------------------------------------------------
-# BUILD LIST OF ALL CARD TYPES
-# -----------------------------------------------------
-def build_types(df: pd.DataFrame):
-    """
-    Generates an ordered list of types.
-    Priority types (Pokemon, One Piece, Magic the Gathering) appear first if present.
-    """
-    if df is None or df.empty or "type" not in df.columns:
-        return []
-
-    priority_display = ["Pokemon", "One Piece", "Magic the Gathering"]
-    priority_lookup = [p.lower() for p in priority_display]
-
-    raw_types = [
-        t.strip()
-        for t in df["type"].dropna().unique()
-        if str(t).strip() != ""
-    ]
-
-    # Priority ordering: include only if present in dataset
-    priority_types = [
-        disp for disp, key in zip(priority_display, priority_lookup)
-        if key in [r.lower() for r in raw_types]
-    ]
-
-    remaining_types = sorted([
-        t.title() for t in raw_types
-        if t.lower() not in priority_lookup
-    ])
-
-    return priority_types + remaining_types
+# END FILE
