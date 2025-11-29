@@ -1,5 +1,7 @@
 import streamlit as st
 from cards_tab import load_cards, clean_price, build_types
+import time
+import random
 
 st.set_page_config(page_title="POiBUNNY", layout="wide")
 
@@ -30,6 +32,52 @@ with tab_main:
     st.title("Hello World")
     st.write("Market Price follows PriceCharting at USD prices.")
     st.write("Listing price defaults to 1.1x — always happy to discuss!")
+
+    st.markdown("## ⭐ Featured Cards")
+
+    # Automatically refresh every 10 seconds
+    st_autorefresh = st.experimental_autorefresh(interval=10_000, key="featured_refresh")
+
+    # Pick 3 random cards
+    featured_cards = cards_df.sample(3)
+
+    # Fade-in CSS
+    st.markdown(
+        """
+        <style>
+        .fade-card {
+            animation: fadein 1.2s ease-in-out;
+        }
+        @keyframes fadein {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # Display the 3 featured cards
+    cols = st.columns(3)
+
+    for col, (_, card) in zip(cols, featured_cards.iterrows()):
+        with col:
+            col.markdown('<div class="fade-card">', unsafe_allow_html=True)
+
+            img = card.get("image_link", "")
+            if img and img.lower() != "loading...":
+                st.image(img, use_container_width=True)
+            else:
+                st.image("https://via.placeholder.com/200", use_container_width=True)
+
+            st.markdown(f"**{card['name']}**")
+            st.markdown(
+                f"Set: {card.get('set','')}  \n"
+                f"Condition: {card.get('condition','')}  \n"
+                f"Sell: {card.get('sell_price','')} | Market: {card.get('market_price','')}"
+            )
+
+            col.markdown("</div>", unsafe_allow_html=True)
 
 
 # =====================================================
