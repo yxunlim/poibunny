@@ -35,7 +35,7 @@ if not cards_df.empty:
     temp_df = cards_df.copy()
     
     # Use market_raw as the weight
-    temp_df["market_price_clean"] = temp_df["market_raw"].fillna(0)
+    temp_df["market_price_clean"] = temp_df["card_sell_price"].fillna(0)
 
     # Avoid divide-by-zero
     if temp_df["market_price_clean"].sum() == 0:
@@ -54,12 +54,12 @@ if not cards_df.empty:
 
     # Display featured cards
     for _, row in featured_cards.iterrows():
-        st.image(row.get("image_link", ""), width=200)
+        st.image(row.get("card_image_link", ""), width=200)
         st.write(f"**{row.get('name','Unknown')}**")
         st.write(f"Set: {row.get('set','Unknown')}")
-        st.write(f"Condition: {row.get('condition','N/A')}")
-        st.write(f"Market Raw: ${row.get('market_raw', 0):,.2f}")
-        st.write(f"My Sell Price: ${row.get('card_sell', 0):,.2f}")
+        st.write(f"Condition: {row.get('card_condition','N/A')}")
+        st.write(f"Market Raw: ${row.get('card_market_price', 0):,.2f}")
+        st.write(f"My Sell Price: ${row.get('card_sell_price', 0):,.2f}")
         st.markdown("---")
 
 else:
