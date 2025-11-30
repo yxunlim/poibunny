@@ -34,8 +34,10 @@ st.markdown("## ⭐ Featured Cards")
 if not cards_df.empty:
     temp_df = cards_df.copy()
     
-    # Use market_raw as the weight
-    temp_df["market_price_clean"] = temp_df["card_sell_price"].fillna(0)
+    # Convert sell price to numeric (critical fix)
+    temp_df["market_price_clean"] = pd.to_numeric(
+        temp_df["card_sell_price"], errors="coerce"
+    ).fillna(0)
 
     # Avoid divide-by-zero
     if temp_df["market_price_clean"].sum() == 0:
@@ -55,14 +57,19 @@ if not cards_df.empty:
     # Display featured cards
     for _, row in featured_cards.iterrows():
         st.image(row.get("card_image_link", ""), width=200)
+
         st.write(f"**{row.get('name','Unknown')}**")
         st.write(f"Set: {row.get('set','Unknown')}")
         st.write(f"Condition: {row.get('card_condition','N/A')}")
-        st.write(f"Market Raw: ${row.get('card_market_price', 0):,.2f}")
-        st.write(f"My Sell Price: ${row.get('card_sell_price', 0):,.2f}")
+
+        # Clean display prices safely
+        market = pd.to_numeric(row.get("card_market_price", 0), errors="coerce") or 0
+        sell = pd.to_numeric(row.get("card_sell_price", 0), errors="coerce") or 0
+
+        st.write(f"Market Raw: ${market:,.2f}")
+        st.write(f"My Sell Price: ${sell:,.2f}")
+
         st.markdown("---")
 
 else:
     st.warning("No cards found in sheet.")
-
-
