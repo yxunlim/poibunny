@@ -47,29 +47,35 @@ if not cards_df.empty:
         weights = weights / weights.sum()
 
     # Random selection
-    featured_count = 6
+    featured_count = 3
     featured_cards = temp_df.sample(
         n=min(featured_count, len(temp_df)),
         weights=weights,
         replace=False
     )
 
-    # Display featured cards
-    for _, row in featured_cards.iterrows():
-        st.image(row.get("card_image_link", ""), width=200)
+    # Display featured cards (3 per row)
+    cols = st.columns(3)
+    
+    for idx, (_, row) in enumerate(featured_cards.iterrows()):
+        
+        col = cols[idx % 3]   # pick column 0, 1, 2 in rotation
+    
+        with col:
+            st.image(row.get("card_image_link", ""), width=180)
+    
+            st.write(f"**{row.get('name','Unknown')}**")
+            st.write(f"Set: {row.get('set','Unknown')}")
+            st.write(f"Condition: {row.get('card_condition','N/A')}")
+    
+            # Clean display prices safely
+            market = pd.to_numeric(row.get("card_market_price", 0), errors="coerce") or 0
+            sell = pd.to_numeric(row.get("card_sell_price", 0), errors="coerce") or 0
+    
+            st.write(f"Market Raw: ${market:,.2f}")
+            st.write(f"My Sell Price: ${sell:,.2f}")
+    
+            st.markdown("---")
 
-        st.write(f"**{row.get('name','Unknown')}**")
-        st.write(f"Set: {row.get('set','Unknown')}")
-        st.write(f"Condition: {row.get('card_condition','N/A')}")
-
-        # Clean display prices safely
-        market = pd.to_numeric(row.get("card_market_price", 0), errors="coerce") or 0
-        sell = pd.to_numeric(row.get("card_sell_price", 0), errors="coerce") or 0
-
-        st.write(f"Market Raw: ${market:,.2f}")
-        st.write(f"My Sell Price: ${sell:,.2f}")
-
-        st.markdown("---")
-
-else:
-    st.warning("No cards found in sheet.")
+        else:
+            st.warning("No cards found in sheet.")
