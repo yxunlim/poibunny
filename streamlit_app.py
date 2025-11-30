@@ -19,6 +19,13 @@ slabs_sheet_url = st.secrets["google_sheets"]["slabs_sheet_url"]
 cards_df = load_google_sheet(cards_sheet_url)
 slabs_df = load_google_sheet(slabs_sheet_url)
 
+# Display both DataFrames
+st.subheader("Cards Sheet Data")
+st.dataframe(cards_df)
+
+st.subheader("Slabs Sheet Data")
+st.dataframe(slabs_df)
+
 # ---------------------------------------------------------
 # Featured Cards Section
 # ---------------------------------------------------------
@@ -58,13 +65,4 @@ if not cards_df.empty:
 else:
     st.warning("No cards found in sheet.")
 
-# Load the sheets
-cards_df = load_google_sheet(cards_sheet_url)
-slabs_df = load_google_sheet(slabs_sheet_url)
 
-# Display both DataFrames
-st.subheader("Cards Sheet Data")
-st.dataframe(cards_df)
-
-st.subheader("Slabs Sheet Data")
-st.dataframe(slabs_df)
