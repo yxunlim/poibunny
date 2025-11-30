@@ -68,7 +68,7 @@ if not cards_df.empty:
             market = pd.to_numeric(row.get("card_market_price", 0), errors="coerce") or 0
             sell = pd.to_numeric(row.get("card_sell_price", 0), errors="coerce") or 0
     
-            # Compact text block (no spacing)
+            # Compact text block
             st.markdown(
                 f"""
     **{row.get('name', 'Unknown')}**  
