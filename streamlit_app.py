@@ -15,6 +15,10 @@ def load_google_sheet(csv_url):
 cards_sheet_url = st.secrets["google_sheets"]["cards_sheet_url"]
 slabs_sheet_url = st.secrets["google_sheets"]["slabs_sheet_url"]
 
+# Load the sheets
+cards_df = load_google_sheet(cards_sheet_url)
+slabs_df = load_google_sheet(slabs_sheet_url)
+
 # ---------------------------------------------------------
 # Featured Cards Section
 # ---------------------------------------------------------
