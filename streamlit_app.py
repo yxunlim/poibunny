@@ -54,28 +54,25 @@ if not cards_df.empty:
         replace=False
     )
 
-    # Display featured cards (3 per row)
-    cols = st.columns(3)
-    
+    # Center the 3 cards using 5 columns: [spacer][card][card][card][spacer]
+    left_spacer, col1, col2, col3, right_spacer = st.columns([1, 2, 2, 2, 1])
+    cols = [col1, col2, col3]
+
     for idx, (_, row) in enumerate(featured_cards.iterrows()):
-        
-        col = cols[idx % 3]   # pick column 0, 1, 2 in rotation
-    
-        with col:
+        with cols[idx]:
             st.image(row.get("card_image_link", ""), width=180)
-    
+
             st.write(f"**{row.get('name','Unknown')}**")
             st.write(f"Set: {row.get('set','Unknown')}")
             st.write(f"Condition: {row.get('card_condition','N/A')}")
-    
+
             # Clean display prices safely
             market = pd.to_numeric(row.get("card_market_price", 0), errors="coerce") or 0
             sell = pd.to_numeric(row.get("card_sell_price", 0), errors="coerce") or 0
-    
+
             st.write(f"Market Raw: ${market:,.2f}")
             st.write(f"My Sell Price: ${sell:,.2f}")
-    
-            st.markdown("---")
 
-        else:
-            st.warning("No cards found in sheet.")
+else:
+    st.warning("No cards found in sheet.")
+
