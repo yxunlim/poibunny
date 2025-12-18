@@ -51,16 +51,20 @@ cards_df = load_cards()
 
 # ------------------- BUILD TABS -------------------
 
-card_types = sorted(cards_df["type"].dropna().unique())
-tabs = st.tabs(card_types + ["Admin Panel"])
+# Define your tabs explicitly
+tabs_labels = ["Pokemon-English", "Pokemon-Japanese", "Others", "Admin Panel"]
+tabs = st.tabs(tabs_labels)
 
 # =================== CARD TABS ===================
 
-for idx, t in enumerate(card_types):
+for idx, t in enumerate(tabs_labels[:-1]):  # skip Admin Panel for now
     with tabs[idx]:
         st.header(f"{t} Cards")
 
-        df = cards_df[(cards_df["type"].str.lower() == t.lower()) & (cards_df["quantity"] > 0)]
+        if t == "Others":
+            df = cards_df[~cards_df["type"].isin(["Pokemon-English", "Pokemon-Japanese"]) & (cards_df["quantity"] > 0)]
+        else:
+            df = cards_df[(cards_df["type"] == t) & (cards_df["quantity"] > 0)]
 
         if df.empty:
             st.info("No cards available")
@@ -111,10 +115,9 @@ for idx, t in enumerate(card_types):
                         f"Sell: {card.get('sell_price','')} | Market: {card.get('market_price','')}"
                     )
 
-
 # =================== ADMIN PANEL ===================
 
-with tabs[len(card_types) + 1]:
+with tabs[-1]:  # last tab
     st.header("Admin Panel")
 
     password = st.text_input("Admin Password", type="password")
