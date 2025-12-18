@@ -17,7 +17,6 @@ ADMIN_PASSWORD = st.secrets["admin"]["password"]
 PSA_API_TOKEN = st.secrets["psa"]["api_token"]
 
 CARDS_SHEET_URL = st.secrets["google_sheets"]["cards_sheet_url"]
-SLABS_SHEET_URL = st.secrets["google_sheets"]["slabs_sheet_url"]
 
 # ------------------- HELPERS -------------------
 
@@ -47,17 +46,13 @@ def load_cards():
     df["type"] = df.get("type", "Other").fillna("Other")
     return df
 
-@st.cache_data
-def load_slabs():
-    return load_google_sheet(SLABS_SHEET_URL)
 
 cards_df = load_cards()
-slabs_df = load_slabs()
 
 # ------------------- BUILD TABS -------------------
 
 card_types = sorted(cards_df["type"].dropna().unique())
-tabs = st.tabs(card_types + ["Slabs", "Admin Panel"])
+tabs = st.tabs(card_types + ["Admin Panel"])
 
 # =================== CARD TABS ===================
 
@@ -116,22 +111,6 @@ for idx, t in enumerate(card_types):
                         f"Sell: {card.get('sell_price','')} | Market: {card.get('market_price','')}"
                     )
 
-# =================== SLABS ===================
-
-with tabs[len(card_types)]:
-    st.header("Slabs")
-
-    for i in range(0, len(slabs_df), 3):
-        cols = st.columns(3)
-        for j, slab in enumerate(slabs_df.iloc[i:i+3].to_dict("records")):
-            with cols[j]:
-                st.image(slab.get("image_link") or "https://via.placeholder.com/150", use_container_width=True)
-                st.markdown(f"**{slab['name']}**")
-                st.markdown(
-                    f"{slab.get('set','')}  \n"
-                    f"PSA: {slab.get('psa_grade','')}  \n"
-                    f"Sell: {slab.get('sell_price','')} | Market: {slab.get('market_price','')}"
-                )
 
 # =================== ADMIN PANEL ===================
 
