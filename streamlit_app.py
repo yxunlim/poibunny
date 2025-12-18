@@ -43,7 +43,7 @@ def load_cards():
     df = load_google_sheet(CARDS_SHEET_URL)
     df["quantity"] = pd.to_numeric(df.get("quantity", 0), errors="coerce").fillna(0)
     df["market_price_clean"] = df.get("market_price", 0).apply(clean_price)
-    df["type"] = df.get("type", "Other").fillna("Other")
+    df["type"] = df.get("type").fillna("Other")
     return df
 
 
