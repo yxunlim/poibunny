@@ -49,6 +49,60 @@ def load_cards():
 
 cards_df = load_cards()
 
+# ---------------------------------------------------------
+# Featured Cards Section
+# ---------------------------------------------------------
+st.markdown("## ⭐ Featured Cards")
+
+if not cards_df.empty:
+    temp_df = cards_df.copy()
+    
+    # Ensure numeric prices exist
+    temp_df["market_price_clean"] = pd.to_numeric(
+        temp_df.get("sell_price", 0), errors="coerce"
+    ).fillna(0)
+
+    # Avoid divide-by-zero
+    if temp_df["market_price_clean"].sum() == 0:
+        weights = None
+    else:
+        weights = temp_df["market_price_clean"] + 1
+        weights = weights / weights.sum()
+
+    # Random selection of featured cards
+    featured_count = 3
+    featured_cards = temp_df.sample(
+        n=min(featured_count, len(temp_df)),
+        weights=weights,
+        replace=False
+    )
+
+    # Center the 3 cards using 5 columns: [spacer][card][card][card][spacer]
+    left_spacer, col1, col2, col3, right_spacer = st.columns([1, 2, 2, 2, 1])
+    cols = [col1, col2, col3]
+    
+    for idx, (_, row) in enumerate(featured_cards.iterrows()):
+        with cols[idx]:
+
+            # Half-size image
+            st.image(row.get("image_link", ""), width=90)
+
+            # Clean numeric prices
+            market = pd.to_numeric(row.get("market_price", 0), errors="coerce") or 0
+            sell = pd.to_numeric(row.get("sell_price", 0), errors="coerce") or 0
+
+            # Compact text block
+            st.markdown(
+                f"""
+**{row.get('name', 'Unknown')}**  
+{row.get('set', 'Unknown')}  
+Market: ${market:,.2f} | Sell Price: ${sell:,.2f}
+                """
+            )
+
+else:
+    st.warning("No cards found in sheet.")
+
 # ------------------- BUILD TABS -------------------
 
 # Define your tabs explicitly
