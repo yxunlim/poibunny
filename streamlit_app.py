@@ -36,46 +36,48 @@ def make_safe_key(name):
 @st.cache_data
 def load_cards():
     df = load_google_sheet(CARDS_SHEET_URL)
+
+    # Clean quantity
     df["quantity"] = pd.to_numeric(df.get("quantity", 0), errors="coerce").fillna(0)
+
+    # Clean prices
     df["market_price_clean"] = df.get("market_price", 0).apply(clean_price)
     df["sell_price_clean"] = df.get("sell_price", 0).apply(clean_price)
-    df["type"] = df.get("type").fillna("Other")
+
+    # Clean type column
+    df["type"] = df.get("type", "Other").astype(str).str.strip().str.title()
+    df["type"] = df["type"].replace({
+        "Pokemon-English": "Pokemon-English",
+        "Pokemon-Japanese": "Pokemon-Japanese"
+    }).fillna("Others")
+
+    # Ensure name column is string
+    df["name"] = df["name"].astype(str).fillna("Unknown")
+
     return df
 
 cards_df = load_cards()
 
-# ---------------------------------------------------------
-# Featured Cards Section
-# ---------------------------------------------------------
+# ------------------- FEATURED CARDS -------------------
 st.markdown("## ⭐ Featured Cards")
 
 if not cards_df.empty:
     temp_df = cards_df.copy()
-    
-    # Ensure numeric prices exist
-    temp_df["market_price_clean"] = pd.to_numeric(
-        temp_df.get("sell_price", 0), errors="coerce"
-    ).fillna(0)
 
-    # Avoid divide-by-zero
+    temp_df["market_price_clean"] = pd.to_numeric(temp_df.get("sell_price", 0), errors="coerce").fillna(0)
+
     if temp_df["market_price_clean"].sum() == 0:
         weights = None
     else:
         weights = temp_df["market_price_clean"] + 1
         weights = weights / weights.sum()
 
-    # Random selection of featured cards
     featured_count = 3
-    featured_cards = temp_df.sample(
-        n=min(featured_count, len(temp_df)),
-        weights=weights,
-        replace=False
-    )
+    featured_cards = temp_df.sample(n=min(featured_count, len(temp_df)), weights=weights, replace=False)
 
-    # Center the 3 cards using 5 columns: [spacer][card][card][card][spacer]
-    left_spacer, col1, col2, col3, right_spacer = st.columns([1, 2, 2, 2, 1])
+    left_spacer, col1, col2, col3, right_spacer = st.columns([1,2,2,2,1])
     cols = [col1, col2, col3]
-    
+
     for idx, (_, row) in enumerate(featured_cards.iterrows()):
         with cols[idx]:
             # Safe image URL
@@ -84,29 +86,26 @@ if not cards_df.empty:
                 image_url = "https://via.placeholder.com/150"
             st.image(image_url, width=90)
 
-            # Clean numeric prices
             market = pd.to_numeric(row.get("market_price", 0), errors="coerce") or 0
             sell = pd.to_numeric(row.get("sell_price", 0), errors="coerce") or 0
 
-            # Compact text block
             st.markdown(
-                f"""
-**{row.get('name', 'Unknown')}**  
-{row.get('set', 'Unknown')}  
-Market: ${market:,.2f} | Sell Price: ${sell:,.2f}
-                """
+                f"**{row.get('name', 'Unknown')}**  \n"
+                f"{row.get('set', 'Unknown')}  \n"
+                f"Market: ${market:,.2f} | Sell Price: ${sell:,.2f}"
             )
 else:
     st.warning("No cards found in sheet.")
 
-# ------------------- BUILD TABS -------------------
+# ------------------- TABS -------------------
 tabs_labels = ["Pokemon-English", "Pokemon-Japanese", "Others", "Admin Panel"]
 tabs = st.tabs(tabs_labels)
 
-for idx, t in enumerate(tabs_labels[:-1]):  # skip Admin Panel for now
+for idx, t in enumerate(tabs_labels[:-1]):  # skip Admin Panel
     with tabs[idx]:
         st.header(f"{t} Cards")
 
+        # Filter cards based on type and quantity
         if t == "Others":
             df = cards_df[~cards_df["type"].isin(["Pokemon-English", "Pokemon-Japanese"]) & (cards_df["quantity"] > 0)]
         else:
@@ -149,17 +148,16 @@ for idx, t in enumerate(tabs_labels[:-1]):  # skip Admin Panel for now
         else:
             df = df.sort_values("market_price_clean", ascending=False)
 
+        # Display cards in grid
         for i in range(0, len(df), 3):
             cols = st.columns(3)
             for j, card in enumerate(df.iloc[i:i+3].to_dict("records")):
                 with cols[j]:
-                    # Safe image
                     image_url = card.get("image_link")
                     if pd.isna(image_url) or not image_url:
                         image_url = "https://via.placeholder.com/150"
                     st.image(image_url, use_container_width=True)
 
-                    # Safe numeric fields
                     quantity = int(card.get("quantity", 0) or 0)
                     sell_price = clean_price(card.get("sell_price"))
                     market_price = clean_price(card.get("market_price"))
@@ -171,8 +169,8 @@ for idx, t in enumerate(tabs_labels[:-1]):  # skip Admin Panel for now
                         f"Sell: ${sell_price:,.2f} | Market: ${market_price:,.2f}"
                     )
 
-# =================== ADMIN PANEL ===================
-with tabs[-1]:  # last tab
+# ------------------- ADMIN PANEL -------------------
+with tabs[-1]:
     st.header("Admin Panel")
 
     password = st.text_input("Admin Password", type="password")
