@@ -4,7 +4,6 @@ import re
 import requests
 
 # ------------------- SAFETY CHECK -------------------
-
 required_keys = ["google_sheets", "admin", "psa"]
 for key in required_keys:
     if key not in st.secrets:
@@ -12,14 +11,11 @@ for key in required_keys:
         st.stop()
 
 # ------------------- CONFIG -------------------
-
 ADMIN_PASSWORD = st.secrets["admin"]["password"]
 PSA_API_TOKEN = st.secrets["psa"]["api_token"]
-
 CARDS_SHEET_URL = st.secrets["google_sheets"]["cards_sheet_url"]
 
 # ------------------- HELPERS -------------------
-
 def load_google_sheet(csv_url):
     df = pd.read_csv(csv_url, on_bad_lines="skip", encoding="utf-8")
     df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
@@ -37,15 +33,14 @@ def make_safe_key(name):
     return re.sub(r"[^a-z0-9_]+", "_", name.lower())
 
 # ------------------- LOAD DATA -------------------
-
 @st.cache_data
 def load_cards():
     df = load_google_sheet(CARDS_SHEET_URL)
     df["quantity"] = pd.to_numeric(df.get("quantity", 0), errors="coerce").fillna(0)
     df["market_price_clean"] = df.get("market_price", 0).apply(clean_price)
+    df["sell_price_clean"] = df.get("sell_price", 0).apply(clean_price)
     df["type"] = df.get("type").fillna("Other")
     return df
-
 
 cards_df = load_cards()
 
@@ -83,9 +78,11 @@ if not cards_df.empty:
     
     for idx, (_, row) in enumerate(featured_cards.iterrows()):
         with cols[idx]:
-
-            # Half-size image
-            st.image(row.get("image_link", ""), width=90)
+            # Safe image URL
+            image_url = row.get("image_link")
+            if pd.isna(image_url) or not image_url:
+                image_url = "https://via.placeholder.com/150"
+            st.image(image_url, width=90)
 
             # Clean numeric prices
             market = pd.to_numeric(row.get("market_price", 0), errors="coerce") or 0
@@ -99,17 +96,12 @@ if not cards_df.empty:
 Market: ${market:,.2f} | Sell Price: ${sell:,.2f}
                 """
             )
-
 else:
     st.warning("No cards found in sheet.")
 
 # ------------------- BUILD TABS -------------------
-
-# Define your tabs explicitly
 tabs_labels = ["Pokemon-English", "Pokemon-Japanese", "Others", "Admin Panel"]
 tabs = st.tabs(tabs_labels)
-
-# =================== CARD TABS ===================
 
 for idx, t in enumerate(tabs_labels[:-1]):  # skip Admin Panel for now
     with tabs[idx]:
@@ -161,16 +153,25 @@ for idx, t in enumerate(tabs_labels[:-1]):  # skip Admin Panel for now
             cols = st.columns(3)
             for j, card in enumerate(df.iloc[i:i+3].to_dict("records")):
                 with cols[j]:
-                    st.image(card.get("image_link") or "https://via.placeholder.com/150", use_container_width=True)
-                    st.markdown(f"**{card['name']}**")
+                    # Safe image
+                    image_url = card.get("image_link")
+                    if pd.isna(image_url) or not image_url:
+                        image_url = "https://via.placeholder.com/150"
+                    st.image(image_url, use_container_width=True)
+
+                    # Safe numeric fields
+                    quantity = int(card.get("quantity", 0) or 0)
+                    sell_price = clean_price(card.get("sell_price"))
+                    market_price = clean_price(card.get("market_price"))
+
                     st.markdown(
+                        f"**{card.get('name', 'Unknown')}**  \n"
                         f"{card.get('set','')}  \n"
-                        f"Qty: {int(card.get('quantity',0))}  \n"
-                        f"Sell: {card.get('sell_price','')} | Market: {card.get('market_price','')}"
+                        f"Qty: {quantity}  \n"
+                        f"Sell: ${sell_price:,.2f} | Market: ${market_price:,.2f}"
                     )
 
 # =================== ADMIN PANEL ===================
-
 with tabs[-1]:  # last tab
     st.header("Admin Panel")
 
