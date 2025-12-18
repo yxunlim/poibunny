@@ -1,11 +1,52 @@
 import streamlit as st
 import pandas as pd
-from cards_tab import load_cards, load_slabs
+from cards_tab import load_cards
 
 # ====================================================
 # PAGE CONFIG
 # ====================================================
 st.set_page_config(page_title="POiBUNNY", layout="wide")
+
+# ====================================================
+# LOAD DATA
+# ====================================================
+if "cards_df" not in st.session_state:
+    df = load_cards()
+
+    # ---- Normalize column names ----
+    df.columns = (
+        df.columns
+        .str.strip()
+        .str.lower()
+        .str.replace(" ", "_")
+    )
+
+    st.session_state.cards_df = df
+
+df = st.session_state.cards_df
+
+
+# ====================================================
+# REQUIRED COLUMN CHECKS
+# ====================================================
+# Handle "type" vs "card_type"
+if "type" in df.columns:
+    TYPE_COL = "type"
+elif "card_type" in df.columns:
+    TYPE_COL = "card_type"
+else:
+    st.error("❌ Missing required column: 'type' or 'card_type'")
+    st.write("Available columns:", list(df.columns))
+    st.stop()
+
+REQUIRED_COLS = ["name", "set", "market_price", "sell_price"]
+
+missing = [c for c in REQUIRED_COLS if c not in df.columns]
+if missing:
+    st.error(f"❌ Missing required columns: {missing}")
+    st.write("Available columns:", list(df.columns))
+    st.stop()
+
 
 # ====================================================
 # HELPERS
@@ -18,20 +59,12 @@ def clean_price(x):
 
 
 # ====================================================
-# SESSION STATE
-# ====================================================
-if "cards_df" not in st.session_state:
-    st.session_state.cards_df = load_cards()
-
-df = st.session_state.cards_df
-
-
-# ====================================================
 # SIDEBAR
 # ====================================================
 st.sidebar.title("Welcome to my Collection")
-st.sidebar.write(
-    "📧 Feel free to email me at **lynx1186@hotmail.com** to purchase my cards"
+st.sidebar.markdown(
+    "📧 **lynx1186@hotmail.com**  \n"
+    "Feel free to email me to purchase cards"
 )
 
 
@@ -56,43 +89,39 @@ with tab_main:
 with tab_cards:
     st.title("Browse by Type")
 
-    # ---- Card Types ----
+    # ---- Types ----
     raw_types = sorted(
-        t.strip()
-        for t in df["type"].dropna()
+        str(t).strip()
+        for t in df[TYPE_COL].dropna()
         if str(t).strip()
     )
 
-    priority_types = ["Pokemon", "One Piece", "Magic the Gathering"]
-    remaining_types = sorted(
-        t.title()
-        for t in raw_types
-        if t.lower() not in [p.lower() for p in priority_types]
+    priority = ["Pokemon", "One Piece", "Magic the Gathering"]
+    priority_lower = [p.lower() for p in priority]
+
+    ordered_types = (
+        [p for p in priority if p.lower() in [r.lower() for r in raw_types]]
+        + sorted(t.title() for t in raw_types if t.lower() not in priority_lower)
     )
 
-    all_types = [
-        p for p in priority_types if p.lower() in [r.lower() for r in raw_types]
-    ] + remaining_types
-
-    type_tabs = st.tabs(all_types)
+    type_tabs = st.tabs(ordered_types)
 
     # ====================================================
     # TYPE LOOP
     # ====================================================
-    for idx, card_type in enumerate(all_types):
+    for idx, card_type in enumerate(ordered_types):
         with type_tabs[idx]:
             st.header(f"{card_type} Cards")
 
             type_df = df[
-                df["type"].str.lower() == card_type.lower()
-            ].dropna(subset=["name"]).copy()
+                df[TYPE_COL].str.lower() == card_type.lower()
+            ].copy()
 
             type_df["market_price_clean"] = type_df["market_price"].apply(clean_price)
 
             # ----------------------------
             # FILTERS
             # ----------------------------
-            st.subheader("Filters")
             c1, c2, c3, c4 = st.columns(4)
 
             with c1:
@@ -119,22 +148,19 @@ with tab_cards:
                 )
 
             with c4:
-                grid_size = st.selectbox(
+                grid = st.selectbox(
                     "Grid", [3, 4], key=f"grid_{card_type}"
                 )
 
             # ----------------------------
             # PRICE FILTER
             # ----------------------------
-            st.subheader("Price Range")
-            min_p, max_p = (
-                float(type_df["market_price_clean"].min()),
-                float(type_df["market_price_clean"].max()),
-            )
+            min_p = float(type_df["market_price_clean"].min())
+            max_p = float(type_df["market_price_clean"].max())
 
             if min_p != max_p:
                 min_price, max_price = st.slider(
-                    "Market Price",
+                    "Market Price Range",
                     min_value=min_p,
                     max_value=max_p,
                     value=(min_p, max_p),
@@ -172,7 +198,6 @@ with tab_cards:
             # ----------------------------
             # PAGINATION
             # ----------------------------
-            st.subheader("Results")
             per_page = st.selectbox(
                 "Results per page", [9, 45, 99], key=f"per_{card_type}"
             )
@@ -182,17 +207,15 @@ with tab_cards:
 
             total_pages = max(1, (len(type_df) - 1) // per_page + 1)
             start = (st.session_state[page_key] - 1) * per_page
-            page_df = type_df.iloc[start : start + per_page]
+            page_df = type_df.iloc[start:start + per_page]
 
             # ----------------------------
             # CARD GRID
             # ----------------------------
-            for i in range(0, len(page_df), grid_size):
-                cols = st.columns(grid_size)
-                for col_idx, card in enumerate(
-                    page_df.iloc[i : i + grid_size].to_dict("records")
-                ):
-                    with cols[col_idx]:
+            for i in range(0, len(page_df), grid):
+                cols = st.columns(grid)
+                for j, card in enumerate(page_df.iloc[i:i + grid].to_dict("records")):
+                    with cols[j]:
                         img = card.get("image_link")
                         st.image(
                             img if img else "https://via.placeholder.com/150",
@@ -216,9 +239,7 @@ with tab_cards:
                     st.session_state[page_key] -= 1
 
             with p2:
-                st.markdown(
-                    f"Page **{st.session_state[page_key]}** of **{total_pages}**"
-                )
+                st.markdown(f"Page **{st.session_state[page_key]}** of **{total_pages}**")
 
             with p3:
                 if st.button("Next ➡", key=f"next_{card_type}") and st.session_state[page_key] < total_pages:
